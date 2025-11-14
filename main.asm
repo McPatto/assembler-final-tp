@@ -8,15 +8,16 @@ INPUT_ROW        EQU 20       ; Movido más abajo para dar más espacio al histo
 HISTORY_BASE_ROW EQU 17       ; Fila más baja del historial (palabras nuevas aquí)
 PROMPT_HINT_ROW  EQU PROMPT_ROW + 2
 
+;int 80h -> calcular columna central (CalculateCenteredColumn)
+;int 60h -> limpiar pantalla (ClearScreenAttr)
+
 extrn SetVideoModeText:near
-extrn ClearScreenAttr:near
 extrn PrintDollarStringAt:near
 extrn PrintCenteredDollarString:near
 extrn DrawGuessSlots:near
 extrn ReadWord:near
 extrn EvaluateGuess:near
 extrn RenderGuessRow:near
-extrn CalculateCenteredColumn:near
 extrn DrawBigText:near
 
 .data
@@ -42,7 +43,7 @@ start:
 
     call SetVideoModeText
     mov al, 07h
-    call ClearScreenAttr
+    int 60h
 
     ; Mostrar pantalla de bienvenida con título grande
     mov bh, 8               ; Fila para el título grande (5 filas de altura)
@@ -63,7 +64,7 @@ WaitForEnter:
 
     ; Limpiar pantalla y comenzar el juego
     mov al, 07h
-    call ClearScreenAttr
+    int 60h
 
     lea si, promptText
     mov bh, PROMPT_ROW
@@ -76,13 +77,13 @@ WaitForEnter:
     call PrintCenteredDollarString
 
 GameLoop:
-    call CalculateCenteredColumn
+    int 80h
     mov bl, al              ; Columna centrada en BL
     mov bh, INPUT_ROW
     mov ah, 0Fh
     call DrawGuessSlots
 
-    call CalculateCenteredColumn
+    int 80h
     mov dl, al              ; Columna centrada en DL
     lea bx, guessBuffer
     mov dh, INPUT_ROW
@@ -152,7 +153,7 @@ RenderHistoryLoop:
     sub dh, al          ; Restar para que las nuevas estén abajo
     pop bx              ; Restaurar índice
     
-    call CalculateCenteredColumn
+    int 80h
     mov dl, al
     call RenderGuessRow
     
