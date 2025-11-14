@@ -31,14 +31,12 @@ YELLOW_ATTR EQU 6Fh
 BASE_ATTR   EQU 0Fh
 
 public SetVideoModeText
-public ClearScreenAttr
 public PrintDollarStringAt
 public PrintCenteredDollarString
 public DrawGuessSlots
 public ReadWord
 public EvaluateGuess
 public RenderGuessRow
-public CalculateCenteredColumn
 public DrawBigText
 
 SetVideoModeText proc near
@@ -46,23 +44,6 @@ SetVideoModeText proc near
     int 10h
     ret
 SetVideoModeText endp
-
-ClearScreenAttr proc near
-    push bx
-    push cx
-    push dx
-
-    mov bh, al
-    mov ax, 0600h
-    xor cx, cx
-    mov dx, 184Fh
-    int 10h
-
-    pop dx
-    pop cx
-    pop bx
-    ret
-ClearScreenAttr endp
 
 WriteCharAttr proc near
     push bx
@@ -491,31 +472,6 @@ AttrReady:
     pop ax
     ret
 RenderGuessRow endp
-
-CalculateCenteredColumn proc near
-    ; Calcula la columna centrada para los recuadros
-    ; Cada recuadro ocupa 5 caracteres + 1 espacio = 6 caracteres
-    ; 5 recuadros × 6 = 30, pero el último no tiene espacio = 29 caracteres totales
-    ; Retorna en AL la columna inicial centrada
-    push bx
-    push cx
-    
-    ; Ancho total: 5 recuadros × 6 caracteres - 1 espacio del último = 29
-    mov al, 5           ; Número de recuadros
-    mov bl, 6           ; Ancho por recuadro (5 caracteres + 1 espacio)
-    mul bl              ; AX = 5 × 6 = 30
-    sub ax, 1           ; Restar 1 espacio del último recuadro = 29
-    
-    ; Calcular columna centrada: (80 - 29) / 2
-    mov bl, 50h         ; 80 columnas (50h)
-    sub bl, al          ; 80 - 29 = 51
-    mov al, bl
-    shr al, 1           ; Dividir por 2 = 25 (redondeado hacia abajo)
-    
-    pop cx
-    pop bx
-    ret
-CalculateCenteredColumn endp
 
 DrawBigText proc near
     ; Dibuja el título completo desde bigW de una vez
