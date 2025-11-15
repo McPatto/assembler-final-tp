@@ -35,12 +35,62 @@ public ClearStringAt
 public SetVideoModeText
 public PrintDollarStringAt
 public PrintCenteredDollarString
+public ClearCenteredDollarString
 public DrawGuessSlots
 public ReadWord
 public EvaluateGuess
 public RenderGuessRow
 public DrawBigText
 public r2a
+
+
+ClearCenteredDollarString proc near
+    push ax
+    push bx
+    push cx
+    push dx
+    push si
+
+    ; Guardar BH y AH en DL/DH
+    mov dh, ah
+    mov dl, bh
+
+    ; Guardar puntero original en BX y contar longitud en CX
+    mov bx, si       ; BX <- puntero original
+    xor cx, cx
+
+CountLooop:
+    mov al, [si]     ; leer byte en SI sin usar LODSB (más controlable)
+    cmp al, '$'
+    je CountDone
+    inc cx
+    inc si
+    jmp CountLooop
+
+CountDone:
+    mov si, bx       ; restaurar puntero original en SI
+
+    ; Calcular columna inicial: (80 - longitud) / 2
+    mov ax, 50h      ; 0x50 = 80 columnas
+    sub ax, cx
+    shr ax, 1
+    mov bl, al       ; BL = columna inicial
+
+    ; Restaurar BH y AH desde DL/DH
+    mov bh, dl
+    mov ah, dh
+
+    ; Llamar a la rutina que imprime espacios por cada carácter ($-terminated)
+    call ClearStringAt
+
+    pop si
+    pop dx
+    pop cx
+    pop bx
+    pop ax
+    ret
+ClearCenteredDollarString endp
+
 
 ClearStringAt proc near
     ; entrada:

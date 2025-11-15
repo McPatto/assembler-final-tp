@@ -21,6 +21,7 @@ extrn RenderGuessRow:near
 extrn DrawBigText:near
 extrn r2a:near
 extrn ClearStringAt:near
+extrn ClearCenteredDollarString:near
 
 .data
 welcomeTitle        db 'Wordly$'
@@ -89,14 +90,13 @@ GameLoop:
     call r2a
     ;imprimir contador de intentos restantes
     lea si, attemptsPrompt
-    mov bh, INPUT_ROW
-    mov bl, 1
+    mov bh, 1
     mov ah, 0Fh
-    call PrintDollarStringAt
+    call PrintCenteredDollarString
 
     lea si, attemptsLeft
-    mov bh, INPUT_ROW
-    mov bl, 21
+    mov bh, 1
+    mov bl, 50
     mov ah, 0Fh
     call PrintDollarStringAt
     ;lea si, failMsg
@@ -224,14 +224,13 @@ GameOver:
     call PrintCenteredDollarString
 
     ;limpio la cadena de intentos restantes
-    mov bh, INPUT_ROW
-    mov bl, 1
+    mov bh, 1
     mov ah, 07h
     lea si, attemptsPrompt
-    call ClearStringAt
+    call ClearCenteredDollarString
 
-    mov bh, INPUT_ROW
-    mov bl, 21
+    mov bh, 1
+    mov bl, 50
     mov ah, 07h
     lea si, attemptsLeft
     call ClearStringAt
@@ -287,14 +286,13 @@ HandleWin:
     call PrintCenteredDollarString
 
     ;limpio la cadena de intentos restantes
-    mov bh, INPUT_ROW
-    mov bl, 1
+    mov bh, 1
     mov ah, 07h
     lea si, attemptsPrompt
-    call ClearStringAt
+    call ClearCenteredDollarString
 
-    mov bh, INPUT_ROW
-    mov bl, 21
+    mov bh, 1
+    mov bl, 50
     mov ah, 07h
     lea si, attemptsLeft
     call ClearStringAt
