@@ -2,7 +2,7 @@
 .stack
 
 .data
-tempTarget          db 5 dup (0)
+tempTarget          db 6 dup (0) ;LEUNAM
 rw_base_column      db 0
 rw_base_row         db 0
 rw_letter_attr      db 0
@@ -15,12 +15,13 @@ box_char_bot_r      db 217      ; ┘ (esquina inferior derecha redondeada)
 box_char_horiz      db 196      ; ─ (línea horizontal simple)
 box_char_vert       db 179      ; │ (línea vertical simple)
 dataDiv             db 10, 1
-general             db ' CASCO DEDAL JARRA PERRO GATOS PASTO LIBRO CARNE FUEGO METAL PUNTO TORRE PLAYA CAMPO NUBES '
-                    db 'TECLA NARIZ CEJAS LABIO PELOS HUESO ROSTO BARBA BOTAS RUEDA MOTOR TUBOS CABLE VELAS NAVIO '
-paises              db ' CHILE JAPON CHINA INDIA RUSIA SUIZA SIRIA QATAR NEPAL SAMOA TONGA YEMEN GHANA KENIA LIBIA '
-                    db 'RUSIA SUIZA SIRIA QATAR NEPAL SAMOA TONGA YEMEN GHANA KENIA LIBIA TUNEZ SUDAN COREA PAPUA '
-comidas             db ' PIZZA PASTA TACOS SUSHI RAMEN CURRY POLLO CARNE CERDO SOPAS FLANS TORTA QUESO JAMON PERAS '
-                    db 'BUDIN LIMON KIWIS MELON FRUTA VERDE ROJOS NEGRO DULCE SALADO AMARGO ACIDO SUAVE DUROS FRIOS '
+word_length         db ?           ; aca guardamos el largo real
+general             db 'CIELO FLOR LIBRO PLAZA PUERTA SILLA NUBE RUEDA RELOJ MARCO CARTA FUEGO PIEDRA PLUMA MUNDO '
+                    db 'BARCO PERRO GATO LLAVE COLOR PLATO BOSQUE NIEVE HOJA TRUCO PIANO JUEGO BANCO METRO FRUTA '
+paises              db 'ANGOLA BELICE BUTAN BRASIL ITALIA EGIPTO SUECIA CHILE GRECIA JAPON INDIA CHINA NIGER KENIA IRAK '
+                    db 'HAITI MALTA YEMEN SIRIA SERBIA OMAN PERU MALI LAOS IRAK CHAD CUBA FIJI IRAN JORDAN'
+comidas             db 'ARROZ PAN PASTA QUESO HUEVO LECHE ASADO CARNE PIZZA SOPA SALSA JAMON POLLO TACO CURRY '
+                    db 'PATO YOGUR CREMA MAIZ MIEL CAFE MANI GALLO TAPAS PATE TARTA MOUSSE TORTA FIDEOS BUDIN'
 
 
 ; Arte ASCII para letras grandes estilo contorno (5x11 cada una, 55 bytes)
@@ -53,6 +54,7 @@ public PickRandomWord
 public general
 public paises
 public comidas
+public word_length
 
 PickRandomWord proc near
     ; Entrada: BX = offset de la categoría (general, paises, o comidas)
@@ -104,7 +106,7 @@ isWordLoop:
     jmp isWordLoop
 
 endCopy:
-
+    mov word_length, cl
     pop dx
     pop ax
     ret
@@ -367,14 +369,13 @@ DrawBox proc near
 DrawBox endp
 
 DrawGuessSlots proc near
-    ; Entrada: BH = fila, BL = columna, AH = atributo
+    ; Entrada: BH = fila, BL = columna, AH = atributo, CX = numero de letras
     push ax
     push bx
     push cx
     push dx
 
     mov [render_base_column], bl
-    mov cx, 5
     mov dh, bh          ; Guardar fila base
     mov dl, ah          ; Guardar atributo
 
@@ -410,7 +411,8 @@ ReadWord proc near
     mov [rw_base_row], dh
     mov di, bx
 
-    mov cx, 5
+    mov cl, word_length
+    mov ch, 0
     mov si, di
     xor al, al
 
@@ -432,7 +434,7 @@ ReadLoop:
     jnb ReadLoopContinue1
     jmp InvalidKey
 ReadLoopContinue1:
-    cmp cx, 5
+    cmp cl, word_length ; LEUNAM
     jae ReadLoop
 
     cmp al, 'a'
@@ -469,7 +471,7 @@ CheckUpperDone:
     call DrawBox
 
     inc cx
-    cmp cx, 5
+    cmp cl, word_length ; LEUNAM
     je ReadDone
     jmp ReadLoop
 
@@ -484,7 +486,7 @@ HandleBackspace:
     ; Calcular posición del recuadro y dibujar recuadro vacío
     mov al, cl
     xor ah, ah          ; Limpiar AH para multiplicación
-    mov bl, 6
+    mov bl, 6 ;LEUNAM REVISAR
     mul bl              ; Multiplicar índice por 6 (resultado en AX)
     mov bl, [rw_base_column]
     add bl, al
@@ -520,7 +522,6 @@ EvaluateGuess proc near
 
     mov si, di
     mov di, offset tempTarget
-    mov cx, 5
 CopyTarget:
     mov al, [si]
     mov [di], al
@@ -528,7 +529,8 @@ CopyTarget:
     inc di
     loop CopyTarget
 
-    mov cx, 5
+    mov cl, word_length
+    mov ch, 0 ; LEUNAM
     mov di, bp
     xor al, al
 ZeroStatuses:
@@ -539,7 +541,8 @@ ZeroStatuses:
     mov si, dx
     mov di, offset tempTarget
     mov bx, bp
-    mov cx, 5
+    mov cl, word_length
+    mov ch, 0 ; LEUNAM
 FirstPass:
     mov al, [si]
     mov ah, [di]
@@ -555,13 +558,15 @@ FirstNext:
 
     mov si, dx
     mov bx, bp
-    mov cx, 5
+    mov cl, word_length
+    mov ch, 0 ; LEUNAM
 SecondPass:
     mov al, [si]
     cmp byte ptr [bx], 0
     jne SkipSecond
     mov di, offset tempTarget
-    mov dx, 5
+    mov dl, word_length
+    xor dh, dh           ; LEUNAM
 SearchLoop:
     cmp al, [di]
     jne ContinueSearch
@@ -596,8 +601,8 @@ RenderGuessRow proc near
     push di
 
     mov [render_base_column], dl
-    mov cx, 5
-
+    mov cl, word_length
+    mov ch, 0
 RenderLoop:
     mov al, [si]
     mov dl, [di]
@@ -721,7 +726,7 @@ DrawBigLetter proc near
     mov dh, bh          ; Guardar fila base en DH
     mov [big_letter_attr], ah  ; Guardar atributo en variable
     
-    mov ch, 5           ; Contador de filas (5 filas)
+    mov ch, word_length ; LEUNAM           ; Contador de filas (5 filas)
 DrawLetterRow:
     push cx             ; Guardar contador de filas
     mov bl, dl          ; Restaurar columna base
