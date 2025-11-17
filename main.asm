@@ -2,7 +2,7 @@
 .stack 100h
 
 MAX_ATTEMPTS     EQU 15
-WORD_LEN         EQU 5
+MAX_WORD_LEN     EQU 6  ; LEUNAM
 PROMPT_ROW       EQU 2        ; Movido más arriba para dar más espacio
 INPUT_ROW        EQU 4       ; Movido más abajo para dar más espacio al historial
 HISTORY_BASE_ROW EQU INPUT_ROW + 3       ; Fila más baja del historial (palabras nuevas aquí)
@@ -43,14 +43,15 @@ arrow               db '->$'
 spaceArrow          db '  $'
 targetWord          db 10 dup (24h)
 targetWordDisplay   db 10 dup (24h)
-guessBuffer         db WORD_LEN dup (0)
-statusBuffer        db WORD_LEN dup (0)
-historyWords        db MAX_ATTEMPTS * WORD_LEN dup (0)
-historyStatuses     db MAX_ATTEMPTS * WORD_LEN dup (0)
+guessBuffer         db MAX_WORD_LEN dup (0)
+statusBuffer        db MAX_WORD_LEN dup (0)
+historyWords        db MAX_ATTEMPTS * MAX_WORD_LEN dup (0)
+historyStatuses     db MAX_ATTEMPTS * MAX_WORD_LEN dup (0)
 attemptsLeft        db '00$'
 attemptCount        db 0
 selectedCategory    db 0              ; 0=Paises, 1=Comidas, 2=General
 categoryOffset      dw 0              ; Offset de la categoría seleccionada
+word_length         db ?              ; aca guardamos el largo real
 
 .code
 start:
@@ -162,7 +163,8 @@ StartGame:
     mov di, offset targetWord
     mov si, offset targetWordDisplay
     mov bx, [categoryOffset]
-    call PickRandomWord
+    call PickRandomWord ;LEUNAM
+    mov word_length, cl
 
 GameLoop:
     ;calcular intentos restantes
@@ -192,23 +194,23 @@ GameLoop:
     mov bl, al              ; Columna centrada en BL
     mov bh, INPUT_ROW
     mov ah, 0Fh
-    call DrawGuessSlots
+    call DrawGuessSlots ;LEUNAM
 
     int 80h
     mov dl, al              ; Columna centrada en DL
     lea bx, guessBuffer
     mov dh, INPUT_ROW
     mov ah, 1Fh
-    call ReadWord
+    call ReadWord ;LEUNAM
 
     lea si, guessBuffer
     lea di, targetWord
     lea bx, statusBuffer
-    call EvaluateGuess
+    call EvaluateGuess ;LEUNAM
 
     mov al, attemptCount
     xor ah, ah
-    mov bl, WORD_LEN
+    mov bl, word_length
     mul bl
     mov dx, ax
 
@@ -217,13 +219,15 @@ GameLoop:
     lea si, guessBuffer
     lea di, historyWords
     add di, dx
-    mov cx, WORD_LEN
+    mov cl, word_length
+    mov ch, 0
     rep movsb
 
     lea si, statusBuffer
     lea di, historyStatuses
     add di, dx
-    mov cx, WORD_LEN
+    mov cl, word_length
+    mov ch, 0
     rep movsb
 
     ; Redibujar todo el historial para simular el scroll
@@ -243,7 +247,7 @@ RenderHistoryLoop:
     sub al, bl          ; attemptCount - índice = posición en el historial
     xor ah, ah
     push bx             ; Guardar índice
-    mov bl, WORD_LEN
+    mov bl, word_length
     mul bl
     mov dx, ax
     pop bx              ; Restaurar índice
@@ -266,14 +270,15 @@ RenderHistoryLoop:
     
     int 80h
     mov dl, al
-    call RenderGuessRow
+    call RenderGuessRow ;LEUNAM
     
     pop bx
     pop cx
     inc bx              ; Siguiente palabra (más vieja)
     loop RenderHistoryLoop
 
-    mov cx, WORD_LEN
+    mov cl, word_length
+    mov ch, 0
     lea si, statusBuffer
 CheckWinLoop:
     cmp byte ptr [si], 2
@@ -327,28 +332,38 @@ GameOver:
     pop es
 
     ; Borrar historyWords 
-    lea di, historyWords
-    mov cx, MAX_ATTEMPTS * WORD_LEN
-    xor al, al
-    rep stosb
+    lea di, historyWords        ; puntero al buffer
+    mov al, 0
+    mov bx, MAX_ATTEMPTS
+    mov cl, word_length
+    xor ch, ch                  ; si es dw, cx = word_length
+    mul bx                      ; AX = word_length * MAX_ATTEMPTS
+    mov cx, ax                  ; CX = cantidad total de bytes
+    rep stosb   
 
     ; Borrar historyStatuses 
-    lea di, historyStatuses
-    mov cx, MAX_ATTEMPTS * WORD_LEN
-    xor al, al
-    rep stosb
+    lea di, historyStatuses        ; puntero al buffer
+    mov al, 0
+    mov bx, MAX_ATTEMPTS
+    mov cl, word_length
+    xor ch, ch                  ; si es dw, cx = word_length
+    mul bx                      ; AX = word_length * MAX_ATTEMPTS
+    mov cx, ax                  ; CX = cantidad total de bytes
+    rep stosb   
 
     ; Limpiar buffer de entrada (guessBuffer)
     push ds
     pop es
     lea di, guessBuffer
-    mov cx, WORD_LEN
+    mov cl, word_length
+    mov ch, 0
     xor al, al
     rep stosb
 
     ; Limpiar statusBuffer (por las dudas)
     lea di, statusBuffer
-    mov cx, WORD_LEN
+    mov cl, word_length
+    mov ch, 0
     xor al, al
     rep stosb
 
@@ -393,28 +408,38 @@ HandleWin:
     pop es
 
     ; Borrar historyWords 
-    lea di, historyWords
-    mov cx, MAX_ATTEMPTS * WORD_LEN
-    xor al, al
-    rep stosb
+    lea di, historyWords        ; puntero al buffer
+    mov al, 0
+    mov bx, MAX_ATTEMPTS
+    mov cl, word_length
+    xor ch, ch                  ; si es dw, cx = word_length
+    mul bx                      ; AX = word_length * MAX_ATTEMPTS
+    mov cx, ax                  ; CX = cantidad total de bytes
+    rep stosb   
 
     ; Borrar historyStatuses 
-    lea di, historyStatuses
-    mov cx, MAX_ATTEMPTS * WORD_LEN
-    xor al, al
-    rep stosb
+    lea di, historyStatuses        ; puntero al buffer
+    mov al, 0
+    mov bx, MAX_ATTEMPTS
+    mov cl, word_length
+    xor ch, ch                  ; si es dw, cx = word_length
+    mul bx                      ; AX = word_length * MAX_ATTEMPTS
+    mov cx, ax                  ; CX = cantidad total de bytes
+    rep stosb   
 
     ; Limpiar buffer de entrada (guessBuffer)
     push ds
     pop es
     lea di, guessBuffer
-    mov cx, WORD_LEN
+    mov cl, word_length
+    mov ch, 0
     xor al, al
     rep stosb
 
     ; Limpiar statusBuffer (por las dudas)
     lea di, statusBuffer
-    mov cx, WORD_LEN
+    mov cl, word_length
+    mov ch, 0
     xor al, al
     rep stosb
 
