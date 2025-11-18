@@ -1,10 +1,12 @@
 .model small
 .stack 100h
 
+GREEN_ATTR       EQU 2Fh
+RED_ATTR         EQU 4Fh
 MAX_ATTEMPTS     EQU 15
-WORD_LEN         EQU 5
-PROMPT_ROW       EQU 2        ; Movido más arriba para dar más espacio
-INPUT_ROW        EQU 4       ; Movido más abajo para dar más espacio al historial
+WORD_LEN         EQU 9
+PROMPT_ROW       EQU 3        ; Movido más arriba para dar más espacio
+INPUT_ROW        EQU 5        ; Movido más abajo para dar más espacio al historial
 HISTORY_BASE_ROW EQU INPUT_ROW + 3       ; Fila más baja del historial (palabras nuevas aquí)
 PROMPT_HINT_ROW  EQU PROMPT_ROW + 2
 
@@ -23,6 +25,9 @@ extrn r2a:near
 extrn ClearStringAt:near
 extrn ClearCenteredDollarString:near
 extrn PickRandomWord:near
+extrn drawFooter:near
+extrn cleanVar:near
+extrn clearTemp:near
 extrn general:byte
 extrn paises:byte
 extrn comidas:byte
@@ -31,14 +36,16 @@ extrn comidas:byte
 welcomeTitle        db 'Wordly$'
 welcomePrompt       db 'Selecciona la categoria que quieras jugar:$'
 continuePrompt      db 'Presiona Enter para continuar$'
+categoryText        db 'Categoria:         $' 
+categoriesTable     dw categoryPaises, categoryComidas, categoryGeneral
 attemptsPrompt      db 'Intentos restantes: $' 
 promptText          db 'Ingresa tu palabra para adivinar la escondida:$'
 promptHint          db '         $'
 successMsg          db 'Felicitaciones! Adivinaste la palabra.$'
 failMsg             db 'No acertaste. La palabra era: $'
-categoryPaises      db 'Paises$'
-categoryComidas     db 'Comidas$'
-categoryGeneral     db 'General$'
+categoryPaises      db 'Lugares$', 0
+categoryComidas     db 'Comidas$', 0
+categoryGeneral     db 'General$', 0
 arrow               db '->$'
 spaceArrow          db '  $'
 targetWord          db 10 dup (24h)
@@ -51,6 +58,7 @@ attemptsLeft        db '00$'
 attemptCount        db 0
 selectedCategory    db 0              ; 0=Paises, 1=Comidas, 2=General
 categoryOffset      dw 0              ; Offset de la categoría seleccionada
+wordLen             db 0
 
 .code
 start:
@@ -148,6 +156,22 @@ StartGame:
     mov al, 07h
     int 60h
 
+    ; Imprimo categoria:
+    lea si, categoryText
+    mov bh, 1
+    mov ah, 0Fh
+    call PrintCenteredDollarString
+
+    ; Imprimo la categoria del juego actual:
+    xor bx, bx
+    mov bl, selectedCategory
+    shl bx, 1                       ; BX = BX * 2 porque la tabla de categorias es un dw
+    mov si, [categoriesTable + bx]  ; SI = puntero a la categoria
+    mov bh, 1
+    mov bl, 42
+    mov ah, 0Fh
+    call PrintDollarStringAt
+
     lea si, promptText
     mov bh, PROMPT_ROW
     mov ah, 0Fh
@@ -163,7 +187,9 @@ StartGame:
     mov si, offset targetWordDisplay
     mov bx, [categoryOffset]
     call PickRandomWord
-
+    ;guardo largo de la palabra
+    mov wordLen, cl
+    xor ch, ch
 GameLoop:
     ;calcular intentos restantes
     mov al, MAX_ATTEMPTS
@@ -172,43 +198,44 @@ GameLoop:
     call r2a
     ;imprimir contador de intentos restantes
     lea si, attemptsPrompt
-    mov bh, 1
+    mov bh, 2
     mov ah, 0Fh
     call PrintCenteredDollarString
 
     lea si, attemptsLeft
-    mov bh, 1
+    mov bh, 2
     mov bl, 50
     mov ah, 0Fh
     call PrintDollarStringAt
-    ;lea si, failMsg
-    ;mov bh, 21
-    ;mov bl columna
-    ;mov ah, 0Fh
-    ;call PrintCenteredDollarString
 
-
+    mov al, wordLen
     int 80h
     mov bl, al              ; Columna centrada en BL
     mov bh, INPUT_ROW
     mov ah, 0Fh
-    call DrawGuessSlots
+    mov cl, wordLen
+    call DrawGuessSlots     ;cambiar pasar largo de palabra
 
+    mov al, wordLen
     int 80h
     mov dl, al              ; Columna centrada en DL
     lea bx, guessBuffer
     mov dh, INPUT_ROW
     mov ah, 1Fh
-    call ReadWord
+    mov cl, wordLen
+    xor ch, ch
+    call ReadWord       ;cambiar pasar wordLen
 
     lea si, guessBuffer
     lea di, targetWord
     lea bx, statusBuffer
+    mov cl, wordLen
+    xor ch, ch
     call EvaluateGuess
 
     mov al, attemptCount
     xor ah, ah
-    mov bl, WORD_LEN
+    mov bl, wordLen
     mul bl
     mov dx, ax
 
@@ -217,13 +244,15 @@ GameLoop:
     lea si, guessBuffer
     lea di, historyWords
     add di, dx
-    mov cx, WORD_LEN
+    mov cl, wordLen
+    xor ch, ch
     rep movsb
 
     lea si, statusBuffer
     lea di, historyStatuses
     add di, dx
-    mov cx, WORD_LEN
+    mov cl, wordLen
+    xor ch, ch
     rep movsb
 
     ; Redibujar todo el historial para simular el scroll
@@ -243,7 +272,7 @@ RenderHistoryLoop:
     sub al, bl          ; attemptCount - índice = posición en el historial
     xor ah, ah
     push bx             ; Guardar índice
-    mov bl, WORD_LEN
+    mov bl, wordLen
     mul bl
     mov dx, ax
     pop bx              ; Restaurar índice
@@ -264,8 +293,11 @@ RenderHistoryLoop:
     add dh, al          ; Restar para que las nuevas estén abajo
     pop bx              ; Restaurar índice
     
+    mov al, wordLen
     int 80h
     mov dl, al
+    mov cl, wordLen       ;cambiar
+    xor ch, ch
     call RenderGuessRow
     
     pop bx
@@ -273,7 +305,8 @@ RenderHistoryLoop:
     inc bx              ; Siguiente palabra (más vieja)
     loop RenderHistoryLoop
 
-    mov cx, WORD_LEN
+    mov cl, wordLen
+    xor ch, ch
     lea si, statusBuffer
 CheckWinLoop:
     cmp byte ptr [si], 2
@@ -290,6 +323,9 @@ NotWin:
     jmp ax                  ; Salto indirecto para evitar "out of range"
 
 GameOver:
+    mov al, RED_ATTR
+    call drawFooter
+
     lea si, failMsg
     mov bh, 21
     mov ah, 0Fh
@@ -305,18 +341,29 @@ GameOver:
     mov ah, 0Fh
     call PrintCenteredDollarString
 
+    ;limpio prompt
+    lea si, promptText
+    mov bh, PROMPT_ROW
+    mov ah, 07h
+    call ClearCenteredDollarString
+
     ;limpio la cadena de intentos restantes
-    mov bh, 1
+    mov bh, 2
     mov ah, 07h
     lea si, attemptsPrompt
     call ClearCenteredDollarString
 
-    mov bh, 1
+    mov bh, 2
     mov bl, 50
     mov ah, 07h
     lea si, attemptsLeft
     call ClearStringAt
 
+    ;limpio la cadena de categorias
+    mov bh, 1
+    mov ah, 07h
+    lea si, categoryText
+    call ClearCenteredDollarString
 
     ; --- Resetear estado del juego ---
     ; Poner attemptCount = 0
@@ -352,17 +399,26 @@ GameOver:
     xor al, al
     rep stosb
 
+    ;limpio vars
+    mov al, 24h
+    mov bx, offset targetWord
+    call cleanVar
+
+    call clearTemp
+
     WaitForEnteer:
     xor ah, ah
     int 16h                 ; Leer tecla del teclado
     cmp al, 0Dh             ; Verificar si es Enter (código 0Dh)
     jne WaitForEnteer        ; Si no es Enter, seguir esperando
 
-    ;llamar a funcion que elige una nueva palabra random
 
     jmp WelcomeMenu
 
 HandleWin:
+    mov al, GREEN_ATTR
+    call drawFooter
+
     lea si, successMsg
     mov bh, 22
     mov ah, 0Fh
@@ -373,10 +429,28 @@ HandleWin:
     mov ah, 0Fh
     call PrintCenteredDollarString
 
-    ;limpio la cadena de intentos restantes
+    ;limpio la cadena de categorias
     mov bh, 1
     mov ah, 07h
+    lea si, categoryText
+    call ClearCenteredDollarString
+
+    ;limpio la cadena de intentos restantes
+    mov bh, 2
+    mov ah, 07h
     lea si, attemptsPrompt
+    call ClearCenteredDollarString
+
+    mov bh, 2
+    mov bl, 50
+    mov ah, 07h
+    lea si, attemptsLeft
+    call ClearStringAt
+
+    ;limpio prompt
+    lea si, promptText
+    mov bh, PROMPT_ROW
+    mov ah, 07h
     call ClearCenteredDollarString
 
     mov bh, 1
@@ -418,13 +492,19 @@ HandleWin:
     xor al, al
     rep stosb
 
+    ;limpio vars
+    mov al, 24h
+    mov bx, offset targetWord
+    call cleanVar
+
+    call clearTemp
+
 WaitForEnterr:
     xor ah, ah
     int 16h                 ; Leer tecla del teclado
     cmp al, 0Dh             ; Verificar si es Enter (código 0Dh)
     jne WaitForEnterr        ; Si no es Enter, seguir esperando
 
-    ;llamar a funcion que elige una nueva palabra random
 
     jmp WelcomeMenu
 
@@ -528,7 +608,7 @@ CategoryLenDone:
     push dx                ; Guardar flag de flecha temporalmente
     mov ax, bx             ; AX = longitud del texto (desde BX)
     add ax, 3              ; Agregar "-> "
-    mov dx, 80
+    mov dx, 74
     sub dx, ax
     shr dx, 1              ; DX = columna inicial
     mov bl, dl             ; BL = columna inicial
