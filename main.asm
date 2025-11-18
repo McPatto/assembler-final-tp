@@ -1,10 +1,10 @@
 .model small
 .stack 100h
 
-MAX_ATTEMPTS     EQU 15
+MAX_ATTEMPTS     EQU 5
 WORD_LEN         EQU 5
-PROMPT_ROW       EQU 2        ; Movido más arriba para dar más espacio
-INPUT_ROW        EQU 4       ; Movido más abajo para dar más espacio al historial
+PROMPT_ROW       EQU 3        ; Movido más arriba para dar más espacio
+INPUT_ROW        EQU 5        ; Movido más abajo para dar más espacio al historial
 HISTORY_BASE_ROW EQU INPUT_ROW + 3       ; Fila más baja del historial (palabras nuevas aquí)
 PROMPT_HINT_ROW  EQU PROMPT_ROW + 2
 
@@ -31,14 +31,16 @@ extrn comidas:byte
 welcomeTitle        db 'Wordly$'
 welcomePrompt       db 'Selecciona la categoria que quieras jugar:$'
 continuePrompt      db 'Presiona Enter para continuar$'
+categoryText        db 'Categoria:       $' 
+categoriesTable     dw categoryPaises, categoryComidas, categoryGeneral
 attemptsPrompt      db 'Intentos restantes: $' 
 promptText          db 'Ingresa tu palabra para adivinar la escondida:$'
 promptHint          db '         $'
 successMsg          db 'Felicitaciones! Adivinaste la palabra.$'
 failMsg             db 'No acertaste. La palabra era: $'
-categoryPaises      db 'Paises$'
-categoryComidas     db 'Comidas$'
-categoryGeneral     db 'General$'
+categoryPaises      db 'Paises$', 0
+categoryComidas     db 'Comidas$', 0
+categoryGeneral     db 'General$', 0
 arrow               db '->$'
 spaceArrow          db '  $'
 targetWord          db 10 dup (24h)
@@ -148,6 +150,22 @@ StartGame:
     mov al, 07h
     int 60h
 
+    ; Imprimo categoria:
+    lea si, categoryText
+    mov bh, 1
+    mov ah, 0Fh
+    call PrintCenteredDollarString
+
+    ; Imprimo la categoria del juego actual:
+    xor bx, bx
+    mov bl, selectedCategory
+    shl bx, 1                       ; BX = BX * 2 porque la tabla de categorias es un dw
+    mov si, [categoriesTable + bx]  ; SI = puntero a la categoria
+    mov bh, 1
+    mov bl, 42
+    mov ah, 0Fh
+    call PrintDollarStringAt
+
     lea si, promptText
     mov bh, PROMPT_ROW
     mov ah, 0Fh
@@ -172,12 +190,12 @@ GameLoop:
     call r2a
     ;imprimir contador de intentos restantes
     lea si, attemptsPrompt
-    mov bh, 1
+    mov bh, 2
     mov ah, 0Fh
     call PrintCenteredDollarString
 
     lea si, attemptsLeft
-    mov bh, 1
+    mov bh, 2
     mov bl, 50
     mov ah, 0Fh
     call PrintDollarStringAt
